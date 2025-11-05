@@ -124,8 +124,6 @@ wss.on("connection", (ws) => {
         }
         : null;
 
-    console.log(userInfo, "9798798797(*&(*&(*&(*&(*&")
-
     ws.send(
         JSON.stringify({
             event: "status",
@@ -143,6 +141,7 @@ wss.on("connection", (ws) => {
 
     ws.on("close", () => console.log("❌ WebSocket client disconnected"));
 });
+
 
 
 // ====================== START SERVER ======================

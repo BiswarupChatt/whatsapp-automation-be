@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-// const connectDB = require("./src/config/database");
+const connectDB = require("./src/config/database");
 const { initWebSocket, getWebSocket } = require("./src/config/websocket");
 const whatsappRoutes = require("./src/routes/whatsapp.routes");
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
@@ -45,7 +45,7 @@ wss.on("connection", (ws) => {
 // =================== SERVER STARTUP ===================
 (async () => {
     try {
-        // await connectDB(); // Connect to MongoDB
+        await connectDB(); // Connect to MongoDB
         const PORT = process.env.PORT || 5000;
         server.listen(PORT, () =>
             console.log(`✅ Server running on http://localhost:${PORT}`)

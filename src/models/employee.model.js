@@ -16,10 +16,6 @@ const employeeListSchema = new mongoose.Schema(
             type: Date,
             required: true,
         },
-        department: {
-            type: String,
-            trim: true,
-        },
         designation: {
             type: String,
             trim: true,

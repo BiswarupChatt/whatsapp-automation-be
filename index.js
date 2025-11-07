@@ -5,7 +5,8 @@ const cors = require("cors");
 const http = require("http");
 const connectDB = require("./src/config/database");
 const { initWebSocket, getWebSocket } = require("./src/config/websocket");
-const whatsappRoutes = require("./src/routes/message.routes");
+const messageRoutes = require("./src/routes/message.routes");
+const employeeRoutes =require("./src/routes/employee.route")
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
 
 // =================== INITIAL SETUP ===================
@@ -14,7 +15,9 @@ app.use(cors());
 app.use(express.json());
 
 // =================== ROUTES ===================
-app.use("/", whatsappRoutes);
+app.use("/", messageRoutes);
+app.use("/employee", employeeRoutes);
+
 
 // =================== SERVER & WEBSOCKET ===================
 const server = http.createServer(app);

@@ -12,6 +12,11 @@ const employeeListSchema = new mongoose.Schema(
             unique: true,
             trim: true,
         },
+        phoneNumber: {
+            type: String,
+            unique: true,
+            required: true,
+        },
         dateOfBirth: {
             type: Date,
             required: true,

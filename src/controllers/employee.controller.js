@@ -111,6 +111,62 @@ exports.getEmployeeById = async (req, res) => {
     }
 };
 
+// ✅ Get upcoming birthdays (e.g., within next 10 or 15 days)
+exports.getUpcomingBirthdays = async (req, res) => {
+    try {
+        const { days = 7 } = req.body; // Default: next 7 days if not provided
+
+        // 1️⃣ Get today's date
+        const today = new Date();
+        const currentYear = today.getFullYear();
+
+        // 2️⃣ Define range end date
+        const endDate = new Date(today);
+        endDate.setDate(today.getDate() + parseInt(days));
+
+        // 3️⃣ Fetch all active employees (you could optimize later)
+        const allEmployees = await Employee.find({ isActive: true });
+
+        // 4️⃣ Filter employees whose birthdays fall within the next X days
+        const upcoming = allEmployees.filter((emp) => {
+            if (!emp.dateOfBirth) return false;
+
+            const dob = new Date(emp.dateOfBirth);
+            const birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
+
+            // If birthday already passed this year, consider next year's date
+            if (birthdayThisYear < today) {
+                birthdayThisYear.setFullYear(currentYear + 1);
+            }
+
+            const diffInDays = Math.ceil((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
+
+            return diffInDays >= 0 && diffInDays <= parseInt(days);
+        });
+
+        // 5️⃣ Sort by upcoming date
+        upcoming.sort((a, b) => {
+            const aDate = new Date(a.dateOfBirth);
+            const bDate = new Date(b.dateOfBirth);
+            return aDate.getMonth() - bDate.getMonth() || aDate.getDate() - bDate.getDate();
+        });
+
+        // 6️⃣ Respond
+        res.status(200).json({
+            success: true,
+            total: upcoming.length,
+            upcomingDays: parseInt(days),
+            data: upcoming,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 // ✅ Update employee
 exports.updateEmployee = async (req, res) => {
     try {
@@ -159,3 +215,5 @@ exports.deleteEmployee = async (req, res) => {
         });
     }
 };
+
+

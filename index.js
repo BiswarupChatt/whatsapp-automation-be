@@ -5,7 +5,7 @@ const cors = require("cors");
 const http = require("http");
 const connectDB = require("./src/config/database");
 const { initWebSocket, getWebSocket } = require("./src/config/websocket");
-const whatsappRoutes = require("./src/routes/whatsapp.routes");
+const whatsappRoutes = require("./src/routes/message.routes");
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
 
 // =================== INITIAL SETUP ===================

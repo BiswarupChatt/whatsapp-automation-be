@@ -3,7 +3,7 @@ const { connectToWhatsApp } = require("../services/whatsapp.service");
 const { clearAuthFolder } = require("../utils/file.utils");
 
 exports.healthCheck = (req, res) => {
-    res.send("🚀 WhatsApp API running");
+    res.send("WhatsApp API running");
 };
 
 exports.sendNow = async (req, res) => {
@@ -20,7 +20,7 @@ exports.schedule = (req, res) => {
     setTimeout(async () => {
         try {
             await sendMessage({ groupName, message, imagePath });
-            console.log(`✅ Scheduled message sent to ${groupName}`);
+            console.log(`Scheduled message sent to ${groupName}`);
         } catch (err) {
             console.error(err);
         }

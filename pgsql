@@ -7,20 +7,20 @@ whatsapp-backend/
 │   │   └── database.js           
 │   │
 │   ├── models/    
-│   │   ├── user.model.js
+│   │   ├── employeeList.model.js
 │   │   ├── messageLog.model.js
-│   │   └── group.model.js
+│   │   └── 
 │   │
 │   ├── controllers/
-│   │   └── whatsapp.controller.js
+│   │   └── message.controller.js
 │   │
 │   ├── services/
 │   │   ├── whatsapp.service.js
 │   │   ├── message.service.js
-│   │   └── user.service.js
+│   │   └── 
 │   │
 │   ├── routes/
-│   │   └── whatsapp.routes.js
+│   │   └── message.routes.js
 │   │
 │   └── utils/
 │       ├── file.utils.js

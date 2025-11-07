@@ -12,7 +12,7 @@ const { MAX_RETRIES, QR_EXPIRY_MS } = require("../utils/constants");
 
 let sock;
 let isReady = false;
-let isConnecting = false; // ✅ prevent multiple connects
+let isConnecting = false; 
 let lastQr = null;
 let reconnectAttempts = 0;
 let qrTimeout = null;

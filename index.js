@@ -5,7 +5,7 @@ const cors = require("cors");
 const http = require("http");
 const connectDB = require("./src/config/database");
 const { initWebSocket, getWebSocket } = require("./src/config/websocket");
-const messageRoutes = require("./src/routes/message.routes");
+const messageRoutes = require("./src/routes/whatsapp.routes");
 const employeeRoutes =require("./src/routes/employee.route")
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
 

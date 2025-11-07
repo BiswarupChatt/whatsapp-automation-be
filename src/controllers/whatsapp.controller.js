@@ -1,4 +1,4 @@
-const { sendMessage } = require("../services/message.service");
+const { sendMessage } = require("../services/whatsapp.service");
 const { connectToWhatsApp } = require("../services/whatsapp.service");
 const { clearAuthFolder } = require("../utils/file.utils");
 

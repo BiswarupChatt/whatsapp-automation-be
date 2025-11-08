@@ -8,7 +8,9 @@ const { initWebSocket, getWebSocket } = require("./src/config/websocket");
 const messageRoutes = require("./src/routes/whatsapp.routes");
 const employeeRoutes = require("./src/routes/employee.route")
 const birthdayScheduleRoutes = require("./src/routes/birthdaySchedule.route")
+const adminRoute = require("./src/routes/admin.route")
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
+const {authMiddleware} = require("./src/middleware/auth.middleware")
 
 // =================== INITIAL SETUP ===================
 const app = express();
@@ -16,9 +18,10 @@ app.use(cors());
 app.use(express.json());
 
 // =================== ROUTES ===================
-app.use("/", messageRoutes);
-app.use("/employee", employeeRoutes);
-app.use("/birthday-schedule", birthdayScheduleRoutes);
+app.use("/auth", adminRoute);
+app.use("/message", authMiddleware, messageRoutes);
+app.use("/employee", authMiddleware, employeeRoutes);
+app.use("/birthday-schedule", authMiddleware, birthdayScheduleRoutes);
 
 
 
@@ -29,7 +32,7 @@ const wss = getWebSocket();
 
 // =================== WEBSOCKET HANDLERS ===================
 wss.on("connection", (ws) => {
-    console.log("🌐 Frontend connected via WebSocket");
+    console.log("Frontend connected via WebSocket");
 
     const { isReady, lastQr, sock } = getSocketState();
     const user = sock?.user
@@ -45,7 +48,7 @@ wss.on("connection", (ws) => {
         ws.send(JSON.stringify({ event: "qr", data: { qr: lastQr } }));
     }
 
-    ws.on("close", () => console.log("❌ WebSocket client disconnected"));
+    ws.on("close", () => console.log("WebSocket client disconnected"));
 });
 
 // =================== SERVER STARTUP ===================
@@ -54,11 +57,11 @@ wss.on("connection", (ws) => {
         await connectDB(); // Connect to MongoDB
         const PORT = process.env.PORT || 5000;
         server.listen(PORT, () =>
-            console.log(`✅ Server running on http://localhost:${PORT}`)
+            console.log(`Server running on http://localhost:${PORT}`)
         );
 
         connectToWhatsApp(); // Start WhatsApp connection
     } catch (error) {
-        console.error("❌ Startup failed:", error.message);
+        console.error("Startup failed:", error.message);
     }
 })();

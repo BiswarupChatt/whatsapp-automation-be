@@ -4,7 +4,7 @@ const birthdayScheduleSchema = new mongoose.Schema(
     {
         employeeId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "EmployeeList", // links to the employee
+            ref: "EmployeeList",
             required: true,
         },
         message: {

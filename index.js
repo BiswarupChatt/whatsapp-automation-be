@@ -6,7 +6,8 @@ const http = require("http");
 const connectDB = require("./src/config/database");
 const { initWebSocket, getWebSocket } = require("./src/config/websocket");
 const messageRoutes = require("./src/routes/whatsapp.routes");
-const employeeRoutes =require("./src/routes/employee.route")
+const employeeRoutes = require("./src/routes/employee.route")
+const birthdayScheduleRoutes = require("./src/routes/birthdaySchedule.route")
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
 
 // =================== INITIAL SETUP ===================
@@ -15,8 +16,10 @@ app.use(cors());
 app.use(express.json());
 
 // =================== ROUTES ===================
+app.use("/birthday-schedule", birthdayScheduleRoutes);
 app.use("/", messageRoutes);
 app.use("/employee", employeeRoutes);
+
 
 
 // =================== SERVER & WEBSOCKET ===================

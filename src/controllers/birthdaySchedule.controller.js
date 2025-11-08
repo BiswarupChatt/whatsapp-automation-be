@@ -20,3 +20,58 @@ exports.createBirthdaySchedule = async (req, res) => {
         res.status(400).json({ error: error.message });
     }
 };
+
+// READ — get all schedules
+exports.getAllSchedules = async (req, res) => {
+    try {
+        const schedules = await birthdayScheduleService.getAllSchedules(req.query);
+        res.status(200).json(schedules);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getUpcomingSchedules = async (req, res) => {
+    try {
+        const result = await birthdayScheduleService.getUpcomingSchedules(req.query);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// READ — get one schedule
+exports.getScheduleById = async (req, res) => {
+    try {
+        const schedule = await birthdayScheduleService.getScheduleById(req.params.id);
+        res.status(200).json(schedule);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+};
+
+// UPDATE — update a schedule
+exports.updateSchedule = async (req, res) => {
+    try {
+        const updated = await birthdayScheduleService.updateSchedule(req.params.id, req.body);
+        res.status(200).json({
+            message: "Birthday schedule updated successfully!",
+            data: updated,
+        });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
+// DELETE — delete a schedule
+exports.deleteSchedule = async (req, res) => {
+    try {
+        const deleted = await birthdayScheduleService.deleteSchedule(req.params.id);
+        res.status(200).json({
+            message: "Birthday schedule deleted successfully!",
+            data: deleted,
+        });
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+};

@@ -16,9 +16,9 @@ app.use(cors());
 app.use(express.json());
 
 // =================== ROUTES ===================
-app.use("/birthday-schedule", birthdayScheduleRoutes);
 app.use("/", messageRoutes);
 app.use("/employee", employeeRoutes);
+app.use("/birthday-schedule", birthdayScheduleRoutes);
 
 
 

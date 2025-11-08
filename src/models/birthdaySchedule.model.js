@@ -12,6 +12,9 @@ const birthdayScheduleSchema = new mongoose.Schema(
             default: "Happy Birthday 🎉! Wishing you a wonderful year ahead!",
             trim: true,
         },
+        imageUrl:{
+            type: String
+        },
         scheduledDate: {
             type: Date,
             required: true, // when the message will be sent

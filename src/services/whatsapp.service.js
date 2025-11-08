@@ -1,5 +1,3 @@
-const fs = require("fs");
-const path = require("path");
 const { Boom } = require("@hapi/boom");
 const {
     default: makeWASocket,
@@ -9,6 +7,8 @@ const {
 const { broadcast } = require("../utils/broadcast.utils");
 const { clearAuthFolder } = require("../utils/file.utils");
 const { MAX_RETRIES, QR_EXPIRY_MS } = require("../utils/constants");
+const axios = require("axios");
+const mime = require("mime-types");
 
 let sock;
 let isReady = false;
@@ -16,6 +16,98 @@ let isConnecting = false;
 let lastQr = null;
 let reconnectAttempts = 0;
 let qrTimeout = null;
+
+let fileTypeFromBuffer = null;
+(async () => {
+    try {
+        // Lazy-require to keep it optional if not installed
+        fileTypeFromBuffer = (await import("file-type")).fileTypeFromBuffer;
+    } catch (_) { }
+})();
+
+async function sendMessage({ groupName, message, imageUrl }) {
+    const { sock, isReady } = getSocketState();
+    if (!isReady) throw new Error("WhatsApp not connected yet.");
+
+    try {
+        console.log(`🔍 Looking for group: "${groupName}"`);
+        const groups = await sock.groupFetchAllParticipating();
+        const group = Object.values(groups).find(
+            g => (g.subject || "").trim().toLowerCase() === (groupName || "").trim().toLowerCase()
+        );
+
+        if (!group) {
+            const availableGroups = Object.values(groups).map(g => g.subject).join(", ");
+            console.log(`📋 Available groups: ${availableGroups}`);
+            throw new Error(`Group "${groupName}" not found.`);
+        }
+
+        console.log(`✅ Found group: ${group.id}`);
+
+        // No image? Send plain text and return
+        if (!imageUrl) {
+            console.log(`🚀 Sending text message...`);
+            await sock.sendMessage(group.id, { text: message || "" });
+            console.log(`✅ Text message sent to group: ${groupName}`);
+            return { success: true, group: groupName };
+        }
+
+        // Validate URL
+        if (!/^https?:\/\//i.test(imageUrl)) {
+            throw new Error("imageUrl must be an http(s) URL");
+        }
+
+        console.log(`🌐 Downloading image from: ${imageUrl}`);
+        const response = await axios.get(imageUrl, {
+            responseType: "arraybuffer",
+            maxRedirects: 3,
+            timeout: 30000,
+            headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "image/*"
+            }
+        });
+
+        const fileBuffer = Buffer.from(response.data);
+        const sizeMB = fileBuffer.length / (1024 * 1024);
+        console.log(`📊 Downloaded image: ${sizeMB.toFixed(2)}MB`);
+
+        if (sizeMB > 16) {
+            throw new Error(`Image too large: ${sizeMB.toFixed(2)}MB (max 16MB)`);
+        }
+
+        // Determine mime from magic bytes (best) → header → filename
+        let detectedMime = null;
+        if (fileTypeFromBuffer) {
+            try {
+                const detected = await fileTypeFromBuffer(fileBuffer); // { mime, ext } | undefined
+                detectedMime = detected?.mime || null;
+            } catch (_) { }
+        }
+
+        const headerMime = response.headers["content-type"];
+        const mimetype = detectedMime || headerMime || mime.lookup(imageUrl) || "image/jpeg";
+        console.log(`📄 Detected MIME type: ${mimetype}`);
+
+        if (!String(mimetype).startsWith("image/")) {
+            throw new Error(`Invalid content type: ${mimetype}`);
+        }
+
+        console.log(`🚀 Sending image to WhatsApp (buffer, no temp file)...`);
+        await sock.sendMessage(group.id, {
+            image: fileBuffer,
+            mimetype,
+            caption: message || ""
+        });
+
+        console.log(`✅ Image + caption sent to group: ${groupName}`);
+        return { success: true, group: groupName };
+    } catch (err) {
+        console.error(`❌ Failed to send message:`, err);
+        throw err;
+    }
+}
+
 
 async function connectToWhatsApp(isFresh = false) {
     if (isConnecting || isReady) {
@@ -132,39 +224,5 @@ function getSocketState() {
     return { isReady, isConnecting, lastQr, sock };
 }
 
-async function sendMessage({ groupName, message, imagePath }) {
-    const { sock, isReady } = getSocketState();
-
-    // --- Check WhatsApp connection ---
-    if (!isReady) {
-        throw new Error("WhatsApp not connected yet.");
-    }
-
-    try {
-        // --- Fetch all groups ---
-        const groups = await sock.groupFetchAllParticipating();
-        const group = Object.values(groups).find((g) => g.subject === groupName);
-
-        if (!group) {
-            throw new Error("Group not found.");
-        }
-
-        // --- Send the message ---
-        if (imagePath && fs.existsSync(imagePath)) {
-            const buffer = fs.readFileSync(imagePath);
-            await sock.sendMessage(group.id, { image: buffer, caption: message });
-        } else {
-            await sock.sendMessage(group.id, { text: message });
-        }
-
-        console.log(`✅ Message sent and logged for group: ${groupName}`);
-        return { success: true, group: groupName };
-
-    } catch (err) {
-        console.error(`❌ Failed to send message to ${groupName}: ${err.message}`);
-        // ❌ We skip logging failures as per your requirement
-        throw err;
-    }
-}
 
 module.exports = { connectToWhatsApp, getSocketState, sendMessage };

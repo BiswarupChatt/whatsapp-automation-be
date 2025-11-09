@@ -23,7 +23,8 @@ exports.getAllEmployeesService = async (query) => {
 
     if (search) {
         filter.$or = [
-            { name: { $regex: search, $options: "i" } },
+            { firstName: { $regex: search, $options: "i" } },
+            { lastName: { $regex: search, $options: "i" } },
             { empId: { $regex: search, $options: "i" } },
             { designation: { $regex: search, $options: "i" } },
         ];

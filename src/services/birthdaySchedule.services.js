@@ -29,7 +29,7 @@ exports.createScheduleForEmployee = async (employeeId, message, imageUrl) => {
     const schedule = await BirthdaySchedule.create({
         employeeId,
         scheduledDate: nextBirthday,
-        message: message || `Happy Birthday ${employee.name} 🎉! Wishing you a wonderful year ahead!`,
+        message: message || `Happy Birthday ${employee.firstName} 🎉! Wishing you a wonderful year ahead!`,
         imageUrl: imageUrl || null,
         status: "pending",
     });
@@ -49,7 +49,7 @@ exports.getAllSchedules = async (filters = {}) => {
     }
 
     return await BirthdaySchedule.find(query)
-        .populate("employeeId", "name empId phoneNumber designation")
+        .populate("employeeId", "firstName lastName empId phoneNumber designation")
         .sort({ scheduledDate: 1 });
 };
 
@@ -72,7 +72,8 @@ exports.getUpcomingSchedules = async (query) => {
     const employeeFilter = {};
     if (search) {
         employeeFilter.$or = [
-            { name: { $regex: search, $options: "i" } },
+            { firstName: { $regex: search, $options: "i" } },
+            { lastName: { $regex: search, $options: "i" } },
             { empId: { $regex: search, $options: "i" } },
             { phoneNumber: { $regex: search, $options: "i" } },
         ];
@@ -95,7 +96,7 @@ exports.getUpcomingSchedules = async (query) => {
     // Fetch data
     const [data, total] = await Promise.all([
         BirthdaySchedule.find(scheduleQuery)
-            .populate("employeeId", "name empId phoneNumber designation")
+            .populate("employeeId", "firstName lastName empId phoneNumber designation")
             .sort({ [sortBy]: sortDirection })
             .skip(skip)
             .limit(parseInt(limit)),
@@ -115,7 +116,7 @@ exports.getUpcomingSchedules = async (query) => {
 exports.getScheduleById = async (id) => {
     const schedule = await BirthdaySchedule.findById(id).populate(
         "employeeId",
-        "name empId phoneNumber designation"
+        "firstName lastName empId phoneNumber designation"
     );
     if (!schedule) throw new Error("Birthday schedule not found");
     return schedule;

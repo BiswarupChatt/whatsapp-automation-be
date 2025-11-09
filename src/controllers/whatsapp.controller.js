@@ -15,19 +15,6 @@ exports.sendNow = async (req, res) => {
     }
 };
 
-exports.schedule = (req, res) => {
-    const { groupName, message, imagePath, delay } = req.body;
-    setTimeout(async () => {
-        try {
-            await sendMessage({ groupName, message, imagePath });
-            console.log(`Scheduled message sent to ${groupName}`);
-        } catch (err) {
-            console.error(err);
-        }
-    }, delay * 60 * 1000);
-
-    res.json({ success: true, message: `Message scheduled in ${delay} minutes` });
-};
 
 exports.resetSession = async (req, res) => {
     try {

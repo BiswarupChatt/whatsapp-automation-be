@@ -189,6 +189,39 @@ async function connectToWhatsApp(isFresh = false) {
     }
 }
 
+async function disconnectFromWhatsApp() {
+    try {
+        console.log("🔌 Disconnecting from WhatsApp...");
+
+        if (sock) {
+            try {
+                await sock.ws.close();
+                sock.ev.removeAllListeners();
+                console.log("🧹 Socket closed and listeners removed.");
+            } catch (err) {
+                console.warn("⚠️ Error closing socket:", err.message);
+            }
+        }
+
+        clearAuthFolder();
+        console.log("🧹 Old WhatsApp session cleared.");
+
+        // Ensure ALL flags are properly reset
+        isReady = false;
+        isConnecting = false;
+        lastQr = null;
+        reconnectAttempts = 0;
+        sock = null;
+
+        broadcast("disconnected", { connected: false, user: null });
+    } catch (err) {
+        console.error("❌ Error during disconnect:", err.message);
+        throw err;
+    }
+}
+
+
+
 function startQrExpiryTimer() {
     if (qrTimeout) clearTimeout(qrTimeout);
     qrTimeout = setTimeout(() => {
@@ -225,4 +258,4 @@ function getSocketState() {
 }
 
 
-module.exports = { connectToWhatsApp, getSocketState, sendMessage };
+module.exports = { connectToWhatsApp, getSocketState, sendMessage, disconnectFromWhatsApp };

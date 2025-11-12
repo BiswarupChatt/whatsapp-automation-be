@@ -1,4 +1,4 @@
-const { sendMessage } = require("../services/whatsapp.service");
+const { sendMessage, disconnectFromWhatsApp } = require("../services/whatsapp.service");
 const { connectToWhatsApp } = require("../services/whatsapp.service");
 const { clearAuthFolder } = require("../utils/file.utils");
 
@@ -18,9 +18,9 @@ exports.sendNow = async (req, res) => {
 
 exports.resetSession = async (req, res) => {
     try {
-        clearAuthFolder();
-        await connectToWhatsApp(true);
-        res.json({ success: true, message: "Session reset — new QR will be sent soon." });
+        await disconnectFromWhatsApp(); // cleanly close current session
+        await connectToWhatsApp(true);  // start fresh connection for new QR
+        res.json({ success: true, message: "Session reset — new QR will appear shortly." });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }

@@ -24,29 +24,6 @@ exports.getAllEmployees = async (req, res) => {
     }
 };
 
-// ✅ Get by ID
-exports.getEmployeeById = async (req, res) => {
-    try {
-        const employee = await employeeService.getEmployeeByIdService(req.params.id);
-        if (!employee)
-            return res.status(404).json({ success: false, message: "Employee not found" });
-        res.status(200).json({ success: true, data: employee });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// ✅ Upcoming Birthdays
-exports.getUpcomingBirthdays = async (req, res) => {
-    try {
-        const { days = 7 } = req.body;
-        const result = await employeeService.getUpcomingBirthdaysService(days);
-        res.status(200).json({ success: true, ...result });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
 // ✅ Update
 exports.updateEmployee = async (req, res) => {
     try {
@@ -70,6 +47,29 @@ exports.deleteEmployee = async (req, res) => {
         if (!employee)
             return res.status(404).json({ success: false, message: "Employee not found" });
         res.status(200).json({ success: true, message: "Employee deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Get by ID
+exports.getEmployeeById = async (req, res) => {
+    try {
+        const employee = await employeeService.getEmployeeByIdService(req.params.id);
+        if (!employee)
+            return res.status(404).json({ success: false, message: "Employee not found" });
+        res.status(200).json({ success: true, data: employee });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Upcoming Birthdays
+exports.getUpcomingBirthdays = async (req, res) => {
+    try {
+        const { days = 7 } = req.body;
+        const result = await employeeService.getUpcomingBirthdaysService(days);
+        res.status(200).json({ success: true, ...result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

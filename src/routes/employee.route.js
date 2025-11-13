@@ -6,7 +6,7 @@ router.get("/upcoming-birthdays", employeeController.getUpcomingBirthdays);
 router.get("/", employeeController.getAllEmployees);
 router.post("/", employeeController.createEmployee);
 router.put("/:id", employeeController.updateEmployee);
-router.get("/:id", employeeController.getEmployeeById);
 router.delete("/:id", employeeController.deleteEmployee);
+router.get("/:id", employeeController.getEmployeeById);
 
 module.exports = router;

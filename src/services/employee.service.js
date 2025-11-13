@@ -57,9 +57,14 @@ exports.getAllEmployeesService = async (query) => {
     };
 };
 
-// ✅ Get Employee by ID
-exports.getEmployeeByIdService = async (id) => {
-    return await Employee.findById(id);
+// ✅ Update Employee
+exports.updateEmployeeService = async (id, updateData) => {
+    return await Employee.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+};
+
+// ✅ Delete Employee
+exports.deleteEmployeeService = async (id) => {
+    return await Employee.findByIdAndDelete(id);
 };
 
 // ✅ Get Upcoming Birthdays
@@ -91,12 +96,7 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
     return { total: upcoming.length, upcomingDays: parseInt(days), data: upcoming };
 };
 
-// ✅ Update Employee
-exports.updateEmployeeService = async (id, updateData) => {
-    return await Employee.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-};
-
-// ✅ Delete Employee
-exports.deleteEmployeeService = async (id) => {
-    return await Employee.findByIdAndDelete(id);
+// ✅ Get Employee by ID
+exports.getEmployeeByIdService = async (id) => {
+    return await Employee.findById(id);
 };

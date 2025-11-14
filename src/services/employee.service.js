@@ -18,7 +18,7 @@ exports.getAllEmployeesService = async (query) => {
         limit = 10,
     } = query;
 
-    const filter = {};
+    const filter = { isDeleted: false, };
     if (isActive !== undefined) filter.isActive = isActive === "true";
 
     if (search) {
@@ -64,7 +64,11 @@ exports.updateEmployeeService = async (id, updateData) => {
 
 // ✅ Delete Employee
 exports.deleteEmployeeService = async (id) => {
-    return await Employee.findByIdAndDelete(id);
+    return await Employee.findByIdAndUpdate(
+        id,
+        { isDeleted: true },
+        { new: true }
+    );
 };
 
 // ✅ Get Upcoming Birthdays
@@ -98,5 +102,8 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
 
 // ✅ Get Employee by ID
 exports.getEmployeeByIdService = async (id) => {
-    return await Employee.findById(id);
+    return await Employee.findOne({
+        _id: id,
+        isDeleted: false,
+    });
 };

@@ -10,12 +10,14 @@ const employeeRoutes = require("./src/routes/employee.route")
 const birthdayScheduleRoutes = require("./src/routes/birthdaySchedule.route")
 const adminRoute = require("./src/routes/admin.route")
 const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.service");
-const {authMiddleware} = require("./src/middleware/auth.middleware")
+const { authMiddleware } = require("./src/middleware/auth.middleware");
+const morgan = require("morgan");
 
 // =================== INITIAL SETUP ===================
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(morgan("dev"))
 
 // =================== ROUTES ===================
 app.use("/auth", adminRoute);

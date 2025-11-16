@@ -18,7 +18,13 @@ exports.getAllEmployeesService = async (query) => {
         limit = 10,
     } = query;
 
-    const filter = { isDeleted: false, };
+    const filter = {
+        $or: [
+            { isDeleted: false },
+            { isDeleted: { $exists: false } }
+        ]
+    };
+
     if (isActive !== undefined) filter.isActive = isActive === "true";
 
     if (search) {
@@ -76,7 +82,7 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
     const today = new Date();
     const currentYear = today.getFullYear();
 
-    const allEmployees = await Employee.find({ isActive: true });
+    const allEmployees = await Employee.find({ isActive: true, isDeleted: false });
 
     const upcoming = allEmployees.filter((emp) => {
         if (!emp.dateOfBirth) return false;

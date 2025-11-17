@@ -19,35 +19,37 @@ exports.getAllEmployeesService = async (query) => {
     } = query;
 
     const filter = {
-        $or: [
-            { isDeleted: false },
-            { isDeleted: { $exists: false } }
+        $and: [
+            { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] }
         ]
     };
 
-    if (isActive !== undefined) filter.isActive = isActive === "true";
+    if (isActive !== undefined) {
+        filter.$and.push({ isActive: isActive === "true" });
+    }
 
     if (search) {
-        filter.$or = [
-            { firstName: { $regex: search, $options: "i" } },
-            { lastName: { $regex: search, $options: "i" } },
-            { empId: { $regex: search, $options: "i" } },
-            { designation: { $regex: search, $options: "i" } },
-        ];
+        filter.$and.push({
+            $or: [
+                { firstName: { $regex: search, $options: "i" } },
+                { lastName: { $regex: search, $options: "i" } },
+                { empId: { $regex: search, $options: "i" } },
+                { designation: { $regex: search, $options: "i" } },
+            ]
+        });
     }
 
     if (month) {
         const monthNum = parseInt(month);
         if (!isNaN(monthNum) && monthNum >= 1 && monthNum <= 12) {
-            filter.$expr = {
-                $eq: [{ $month: "$dateOfBirth" }, monthNum],
-            };
+            filter.$and.push({
+                $expr: { $eq: [{ $month: "$dateOfBirth" }, monthNum] }
+            });
         }
     }
 
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortOptions = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+    const skip = (page - 1) * limit;
 
     const [employees, totalCount] = await Promise.all([
         Employee.find(filter).sort(sortOptions).skip(skip).limit(parseInt(limit)),
@@ -82,15 +84,20 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
     const today = new Date();
     const currentYear = today.getFullYear();
 
-    const allEmployees = await Employee.find({ isActive: true, isDeleted: false });
+    const allEmployees = await Employee.find({
+        isActive: true,
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
+    });
 
     const upcoming = allEmployees.filter((emp) => {
         if (!emp.dateOfBirth) return false;
 
         const dob = new Date(emp.dateOfBirth);
-        const birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
+        let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
 
-        if (birthdayThisYear < today) birthdayThisYear.setFullYear(currentYear + 1);
+        if (birthdayThisYear < today) {
+            birthdayThisYear.setFullYear(currentYear + 1);
+        }
 
         const diffInDays = Math.ceil((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
 
@@ -100,10 +107,18 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
     upcoming.sort((a, b) => {
         const aDate = new Date(a.dateOfBirth);
         const bDate = new Date(b.dateOfBirth);
-        return aDate.getMonth() - bDate.getMonth() || aDate.getDate() - bDate.getDate();
+
+        return (
+            aDate.getMonth() - bDate.getMonth() ||
+            aDate.getDate() - bDate.getDate()
+        );
     });
 
-    return { total: upcoming.length, upcomingDays: parseInt(days), data: upcoming };
+    return {
+        total: upcoming.length,
+        upcomingDays: parseInt(days),
+        data: upcoming,
+    };
 };
 
 // ✅ Get Employee by ID

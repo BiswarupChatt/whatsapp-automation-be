@@ -89,30 +89,26 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
     });
 
-    const upcoming = allEmployees.filter((emp) => {
-        if (!emp.dateOfBirth) return false;
+    const upcoming = allEmployees
+        .map((emp) => {
+            if (!emp.dateOfBirth) return null;
 
-        const dob = new Date(emp.dateOfBirth);
-        let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
+            const dob = new Date(emp.dateOfBirth);
+            let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
 
-        if (birthdayThisYear < today) {
-            birthdayThisYear.setFullYear(currentYear + 1);
-        }
+            if (birthdayThisYear < today) {
+                birthdayThisYear.setFullYear(currentYear + 1);
+            }
 
-        const diffInDays = Math.ceil((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
+            const diffInDays = Math.ceil(
+                (birthdayThisYear - today) / (1000 * 60 * 60 * 24)
+            );
 
-        return diffInDays >= 0 && diffInDays <= parseInt(days);
-    });
+            return { ...emp._doc, diffInDays };
+        })
+        .filter((emp) => emp && emp.diffInDays >= 0 && emp.diffInDays <= parseInt(days));
 
-    upcoming.sort((a, b) => {
-        const aDate = new Date(a.dateOfBirth);
-        const bDate = new Date(b.dateOfBirth);
-
-        return (
-            aDate.getMonth() - bDate.getMonth() ||
-            aDate.getDate() - bDate.getDate()
-        );
-    });
+    upcoming.sort((a, b) => a.diffInDays - b.diffInDays);
 
     return {
         total: upcoming.length,

@@ -34,6 +34,12 @@ exports.createScheduleForEmployee = async (employeeId, message, imageUrl) => {
         status: "pending",
     });
 
+    await EmployeeList.findByIdAndUpdate(
+        employeeId,
+        { isMessageScheduled: true },
+        { new: true }
+    );
+
     return schedule;
 };
 

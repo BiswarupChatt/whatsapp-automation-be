@@ -78,7 +78,7 @@ exports.deleteSchedule = async (req, res) => {
 
 exports.sendMessagesToday = async (req, res) => {
     try {
-        const result = await birthdayScheduleService.sendMessagesTodayService();
+        const result = await birthdayScheduleService.sendMessagesToday();
 
         res.status(200).json({
             success: true,

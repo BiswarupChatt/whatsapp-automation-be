@@ -170,14 +170,12 @@ exports.deleteSchedule = async (id) => {
 };
 
 
-exports.sendMessagesTodayService = async () => {
+exports.sendMessagesToday = async () => {
     const today = new Date();
 
-    // Normalize date range for today
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-    // 1️⃣ Find today's pending schedules
     const schedules = await BirthdaySchedule.find({
         status: "pending",
         scheduledDate: { $gte: startOfDay, $lte: endOfDay }

@@ -1,13 +1,28 @@
 const EmployeeList = require("../models/employee.model");
 const BirthdaySchedule = require("../models/birthdaySchedule.model");
+const { sendMessage } = require("../services/whatsapp.service")
 
-const getNextBirthday = (dob) => {
-    const today = new Date();
+function getNextBirthday(dob) {
+    const now = new Date();
     const birthDate = new Date(dob);
-    let nextBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
-    if (nextBirthday < today) nextBirthday.setFullYear(today.getFullYear() + 1);
-    return nextBirthday;
-};
+
+    let nextBirthday = new Date(
+        now.getFullYear(),
+        birthDate.getMonth(),
+        birthDate.getDate()
+    );
+
+    if (nextBirthday < now.setHours(0, 0, 0, 0)) {
+        nextBirthday = new Date(
+            now.getFullYear() + 1,
+            birthDate.getMonth(),
+            birthDate.getDate()
+        );
+    }
+
+    return new Date(nextBirthday);
+}
+
 
 exports.createScheduleForEmployee = async (employeeId, message, imageUrl) => {
     const employee = await EmployeeList.findById(employeeId);
@@ -152,4 +167,52 @@ exports.deleteSchedule = async (id) => {
     const deleted = await BirthdaySchedule.findByIdAndDelete(id);
     if (!deleted) throw new Error("Birthday schedule not found");
     return deleted;
+};
+
+
+exports.sendMessagesTodayService = async () => {
+    const today = new Date();
+
+    // Normalize date range for today
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    // 1️⃣ Find today's pending schedules
+    const schedules = await BirthdaySchedule.find({
+        status: "pending",
+        scheduledDate: { $gte: startOfDay, $lte: endOfDay }
+    }).populate(
+        "employeeId",
+        "firstName lastName empId phoneNumber designation"
+    );
+
+    if (schedules.length === 0) {
+        return { message: "No pending birthday messages for today." };
+    }
+
+    const groupName = "Test Group";
+
+    for (const sch of schedules) {
+        try {
+            await sendMessage({
+                groupName,
+                message: sch.message,
+                imageUrl: sch.imageUrl || null
+            });
+
+            await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+                status: "sent",
+                sentAt: new Date(),
+            });
+
+        } catch (err) {
+            console.error("Message sending failed for schedule:", sch._id, err);
+
+            await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+                status: "failed",
+            });
+        }
+    }
+
+    return { message: "Birthday messages processed successfully." };
 };

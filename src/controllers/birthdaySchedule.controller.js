@@ -75,3 +75,21 @@ exports.deleteSchedule = async (req, res) => {
         res.status(404).json({ error: error.message });
     }
 };
+
+exports.sendMessagesToday = async (req, res) => {
+    try {
+        const result = await birthdayScheduleService.sendMessagesTodayService();
+
+        res.status(200).json({
+            success: true,
+            message: result.message,
+        });
+    } catch (error) {
+        console.error("Error in sendMessagesToday Controller:", error);
+
+        res.status(500).json({
+            success: false,
+            error: error.message || "Failed to send scheduled messages",
+        });
+    }
+};

@@ -82,6 +82,7 @@ exports.deleteEmployeeService = async (id) => {
 // ✅ Get Upcoming Birthdays
 exports.getUpcomingBirthdaysService = async (days = 7) => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // ignore time
     const currentYear = today.getFullYear();
 
     const allEmployees = await Employee.find({
@@ -94,8 +95,11 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
             if (!emp.dateOfBirth) return null;
 
             const dob = new Date(emp.dateOfBirth);
-            let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
 
+            let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
+            birthdayThisYear.setHours(0, 0, 0, 0);
+
+            // FIX: If birthday passed (strictly), move to next year
             if (birthdayThisYear < today) {
                 birthdayThisYear.setFullYear(currentYear + 1);
             }
@@ -116,6 +120,7 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
         data: upcoming,
     };
 };
+
 
 // ✅ Get Employee by ID
 exports.getEmployeeByIdService = async (id) => {

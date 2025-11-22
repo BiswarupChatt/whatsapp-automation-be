@@ -130,13 +130,22 @@ exports.getScheduleById = async (id) => {
 
 // Update a schedule
 exports.updateSchedule = async (id, updateData) => {
+
     const schedule = await BirthdaySchedule.findByIdAndUpdate(id, updateData, {
         new: true,
         runValidators: true,
     });
+
     if (!schedule) throw new Error("Birthday schedule not found");
-    return schedule;
+
+    const populatedSchedule = await BirthdaySchedule.findById(id).populate(
+        "employeeId",
+        "firstName lastName empId phoneNumber designation"
+    );
+
+    return populatedSchedule;
 };
+
 
 // Delete a schedule
 exports.deleteSchedule = async (id) => {

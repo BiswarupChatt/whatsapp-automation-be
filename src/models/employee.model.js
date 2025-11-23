@@ -37,10 +37,6 @@ const employeeListSchema = new mongoose.Schema(
         isDeleted: {
             type: Boolean,
             default: false
-        },
-        isMessageScheduled: {
-            type: Boolean,
-            default: false
         }
     },
     { timestamps: true }

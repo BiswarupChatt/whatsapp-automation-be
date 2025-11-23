@@ -1,8 +1,9 @@
-const Employee = require("../models/employee.model");
+const EmployeeList = require("../models/employee.model");
+const BirthdaySchedule = require("../models/birthdaySchedule.model")
 
-// ✅ Create Employee
+// ✅ Create EmployeeList
 exports.createEmployeeService = async (employeeData) => {
-    const employee = new Employee(employeeData);
+    const employee = new EmployeeList(employeeData);
     return await employee.save();
 };
 
@@ -52,8 +53,8 @@ exports.getAllEmployeesService = async (query) => {
     const skip = (page - 1) * limit;
 
     const [employees, totalCount] = await Promise.all([
-        Employee.find(filter).sort(sortOptions).skip(skip).limit(parseInt(limit)),
-        Employee.countDocuments(filter),
+        EmployeeList.find(filter).sort(sortOptions).skip(skip).limit(parseInt(limit)),
+        EmployeeList.countDocuments(filter),
     ]);
 
     return {
@@ -65,14 +66,14 @@ exports.getAllEmployeesService = async (query) => {
     };
 };
 
-// ✅ Update Employee
+// ✅ Update EmployeeList
 exports.updateEmployeeService = async (id, updateData) => {
-    return await Employee.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+    return await EmployeeList.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
-// ✅ Delete Employee
+// ✅ Delete EmployeeList
 exports.deleteEmployeeService = async (id) => {
-    return await Employee.findByIdAndUpdate(
+    return await EmployeeList.findByIdAndUpdate(
         id,
         { isDeleted: true },
         { new: true }
@@ -80,18 +81,19 @@ exports.deleteEmployeeService = async (id) => {
 };
 
 // ✅ Get Upcoming Birthdays
-exports.getUpcomingBirthdaysService = async (days = 7) => {
+exports.getUpcomingBirthdaysService = async (days = 7, includeToday = true) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // ignore time
+    today.setHours(0, 0, 0, 0);
+
     const currentYear = today.getFullYear();
 
-    const allEmployees = await Employee.find({
+    const allEmployees = await EmployeeList.find({
         isActive: true,
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }]
     });
 
-    const upcoming = allEmployees
-        .map((emp) => {
+    const upcoming = await Promise.all(
+        allEmployees.map(async (emp) => {
             if (!emp.dateOfBirth) return null;
 
             const dob = new Date(emp.dateOfBirth);
@@ -99,8 +101,10 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
             let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
             birthdayThisYear.setHours(0, 0, 0, 0);
 
-            // FIX: If birthday passed (strictly), move to next year
-            if (birthdayThisYear < today) {
+            // 🔥 SWITCHABLE LOGIC (today included or not)
+            const isToday = birthdayThisYear.getTime() === today.getTime();
+
+            if (birthdayThisYear < today || (isToday && !includeToday)) {
                 birthdayThisYear.setFullYear(currentYear + 1);
             }
 
@@ -108,23 +112,38 @@ exports.getUpcomingBirthdaysService = async (days = 7) => {
                 (birthdayThisYear - today) / (1000 * 60 * 60 * 24)
             );
 
-            return { ...emp._doc, diffInDays };
-        })
-        .filter((emp) => emp && emp.diffInDays >= 0 && emp.diffInDays <= parseInt(days));
+            if (diffInDays < 0 || diffInDays > parseInt(days)) return null;
 
-    upcoming.sort((a, b) => a.diffInDays - b.diffInDays);
+            // check schedule
+            const checkSchedule = await BirthdaySchedule.findOne({
+                employeeId: emp._id,
+                status: "pending"
+            }).lean();
+
+            return {
+                ...emp._doc,
+                diffInDays,
+                isMessageScheduled: !!checkSchedule
+            };
+        })
+    );
+
+    const filtered = upcoming.filter((emp) => emp !== null);
+    filtered.sort((a, b) => a.diffInDays - b.diffInDays);
 
     return {
-        total: upcoming.length,
+        total: filtered.length,
         upcomingDays: parseInt(days),
-        data: upcoming,
+        includeToday,
+        data: filtered,
     };
 };
 
 
-// ✅ Get Employee by ID
+
+// ✅ Get EmployeeList by ID
 exports.getEmployeeByIdService = async (id) => {
-    return await Employee.findOne({
+    return await EmployeeList.findOne({
         _id: id,
         isDeleted: false,
     });

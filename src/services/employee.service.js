@@ -1,13 +1,11 @@
 const EmployeeList = require("../models/employee.model");
 const BirthdaySchedule = require("../models/birthdaySchedule.model")
 
-// ✅ Create EmployeeList
 exports.createEmployeeService = async (employeeData) => {
     const employee = new EmployeeList(employeeData);
     return await employee.save();
 };
 
-// ✅ Get All Employees with Search, Sort, Pagination, and Month Filter
 exports.getAllEmployeesService = async (query) => {
     const {
         search,
@@ -66,12 +64,10 @@ exports.getAllEmployeesService = async (query) => {
     };
 };
 
-// ✅ Update EmployeeList
 exports.updateEmployeeService = async (id, updateData) => {
     return await EmployeeList.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
-// ✅ Delete EmployeeList
 exports.deleteEmployeeService = async (id) => {
     return await EmployeeList.findByIdAndUpdate(
         id,
@@ -80,7 +76,6 @@ exports.deleteEmployeeService = async (id) => {
     );
 };
 
-// ✅ Get Upcoming Birthdays
 exports.getUpcomingBirthdaysService = async (days = 7, includeToday = true) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -101,7 +96,6 @@ exports.getUpcomingBirthdaysService = async (days = 7, includeToday = true) => {
             let birthdayThisYear = new Date(currentYear, dob.getMonth(), dob.getDate());
             birthdayThisYear.setHours(0, 0, 0, 0);
 
-            // 🔥 SWITCHABLE LOGIC (today included or not)
             const isToday = birthdayThisYear.getTime() === today.getTime();
 
             if (birthdayThisYear < today || (isToday && !includeToday)) {

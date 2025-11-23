@@ -9,18 +9,15 @@ const employeeListSchema = new mongoose.Schema(
         },
         lastName: {
             type: String,
-            required: true,
             trim: true,
         },
         empId: {
             type: String,
-            unique: true,
             trim: true,
         },
         phoneNumber: {
             type: String,
             unique: true,
-            required: true,
         },
         dateOfBirth: {
             type: Date,

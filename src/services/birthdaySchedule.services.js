@@ -1,7 +1,8 @@
 const EmployeeList = require("../models/employee.model");
 const BirthdaySchedule = require("../models/birthdaySchedule.model");
 const { sendMessage } = require("../services/whatsapp.service")
-const messageEmitter = require("../events/messageEmitter")
+const messageEmitter = require("../events/messageEmitter");
+const { sendEmail } = require("../utils/emailer");
 
 function getNextBirthday(dob) {
     const now = new Date();
@@ -210,29 +211,31 @@ exports.deleteSchedule = async (id) => {
 //     return { message: "Birthday messages processed successfully." };
 // };
 
+
 messageEmitter.on("sendTodayBirthdays", async ({ startOfDay, endOfDay }) => {
-    console.log("🎉 Background job started...");
+
+    console.log("🎉 Birthday background job started...");
+
+    const summary = {
+        total: 0,
+        sent: 0,
+        failed: 0,
+        sentList: [],
+        failedList: []
+    };
 
     try {
         const schedules = await BirthdaySchedule.find({
             status: "pending",
             scheduledDate: { $gte: startOfDay, $lte: endOfDay }
-        }).populate(
-            "employeeId",
-            "firstName lastName empId phoneNumber designation"
-        );
+        }).populate("employeeId", "firstName lastName empId designation");
 
-        if (schedules.length === 0) {
-            console.log("No pending birthday messages.");
-            return;
-        }
-
-        const groupName = "Test Group";
+        summary.total = schedules.length;
 
         for (const sch of schedules) {
             try {
                 await sendMessage({
-                    groupName,
+                    groupName: "Test Group",
                     message: sch.message,
                     imageUrl: sch.imageUrl || null
                 });
@@ -242,9 +245,12 @@ messageEmitter.on("sendTodayBirthdays", async ({ startOfDay, endOfDay }) => {
                     sentAt: new Date(),
                 });
 
-                console.log("✔ Sent:", sch.employeeId.firstName);
+                summary.sent++;
+                summary.sentList.push(`${sch.employeeId.firstName} ${sch.employeeId.lastName}`);
+
             } catch (err) {
-                console.error("❌ Failed for:", sch._id);
+                summary.failed++;
+                summary.failedList.push(`${sch.employeeId.firstName} ${sch.employeeId.lastName}`);
 
                 await BirthdaySchedule.findByIdAndUpdate(sch._id, {
                     status: "failed",
@@ -252,8 +258,59 @@ messageEmitter.on("sendTodayBirthdays", async ({ startOfDay, endOfDay }) => {
             }
         }
 
-        console.log("🎉 Background job completed.");
+        // 🔥 When done, emit completion event
+        messageEmitter.emit("birthdayJobDone", summary);
+
+    } catch (error) {
+        console.error("🔥 Error in listener:", error);
+
+        messageEmitter.emit("birthdayJobDone", {
+            total: 0,
+            sent: 0,
+            failed: 0,
+            sentList: [],
+            failedList: [],
+            error: error.message
+        });
+    }
+});
+
+
+// 📩 REPORT EMAIL SENDER
+messageEmitter.on("birthdayJobDone", async (summary) => {
+    console.log("🎯 Birthday job completed. Sending report email...");
+
+    const htmlReport = `
+        <h2>🎉 Birthday Message Report</h2>
+        <p><b>Total Scheduled:</b> ${summary.total}</p>
+        <p><b>Messages Sent:</b> ${summary.sent}</p>
+        <p><b>Messages Failed:</b> ${summary.failed}</p>
+
+        ${summary.sentList.length > 0 ? `
+            <h3>✔ Sent To:</h3>
+            <ul>${summary.sentList.map(name => `<li>${name}</li>`).join("")}</ul>
+        ` : ""}
+
+        ${summary.failedList.length > 0 ? `
+            <h3>❌ Failed To:</h3>
+            <ul>${summary.failedList.map(name => `<li>${name}</li>`).join("")}</ul>
+        ` : `<p>No failures 🎉</p>`}
+
+        ${summary.error ? `
+            <h3>🔥 Job Error:</h3>
+            <p>${summary.error}</p>
+        ` : ""}
+    `;
+
+    try {
+        await sendEmail({
+            to: process.env.REPORT_EMAIL,
+            subject: "Daily Birthday WhatsApp Report",
+            html: htmlReport
+        });
+
+        console.log("📨 Report email sent successfully!");
     } catch (err) {
-        console.error("🔥 Error in listener:", err);
+        console.error("❌ Failed to send report email:", err);
     }
 });

@@ -37,6 +37,7 @@ exports.createScheduleForEmployee = async (employeeId, message, imageUrl) => {
     const existing = await BirthdaySchedule.findOne({
         employeeId,
         scheduledDate: nextBirthday,
+        status: "pending"
     });
 
     if (existing) {
@@ -212,6 +213,7 @@ exports.deleteSchedule = async (id) => {
 // };
 
 
+// Send Todays Birthday Emmitter
 messageEmitter.on("sendTodayBirthdays", async ({ startOfDay, endOfDay }) => {
 
     console.log("🎉 Birthday background job started...");

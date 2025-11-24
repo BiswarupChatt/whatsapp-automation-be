@@ -133,12 +133,22 @@ exports.getUpcomingBirthdaysService = async (days = 7, includeToday = true) => {
     };
 };
 
-
-
-// ✅ Get EmployeeList by ID
 exports.getEmployeeByIdService = async (id) => {
     return await EmployeeList.findOne({
         _id: id,
         isDeleted: false,
     });
+};
+
+exports.createManyEmployeesService = async (employeesArray) => {
+    if (!Array.isArray(employeesArray) || employeesArray.length === 0) {
+        throw new Error("Employees list must be a non-empty array.");
+    }
+
+    // Bulk insert
+    const employees = await EmployeeList.insertMany(employeesArray, {
+        ordered: false,   // continue inserting even if some fail
+    });
+
+    return employees;
 };

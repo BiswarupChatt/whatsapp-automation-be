@@ -1,6 +1,5 @@
 const employeeService = require("../services/employee.service");
 
-// ✅ Create
 exports.createEmployee = async (req, res) => {
     try {
         const employee = await employeeService.createEmployeeService(req.body);
@@ -14,7 +13,6 @@ exports.createEmployee = async (req, res) => {
     }
 };
 
-// ✅ Get All
 exports.getAllEmployees = async (req, res) => {
     try {
         const data = await employeeService.getAllEmployeesService(req.query);
@@ -24,7 +22,6 @@ exports.getAllEmployees = async (req, res) => {
     }
 };
 
-// ✅ Update
 exports.updateEmployee = async (req, res) => {
     try {
         const employee = await employeeService.updateEmployeeService(req.params.id, req.body);
@@ -40,7 +37,6 @@ exports.updateEmployee = async (req, res) => {
     }
 };
 
-// ✅ Delete
 exports.deleteEmployee = async (req, res) => {
     try {
         const employee = await employeeService.deleteEmployeeService(req.params.id);
@@ -52,7 +48,6 @@ exports.deleteEmployee = async (req, res) => {
     }
 };
 
-// ✅ Get by ID
 exports.getEmployeeById = async (req, res) => {
     try {
         const employee = await employeeService.getEmployeeByIdService(req.params.id);
@@ -64,7 +59,6 @@ exports.getEmployeeById = async (req, res) => {
     }
 };
 
-// ✅ Upcoming Birthdays
 exports.getUpcomingBirthdays = async (req, res) => {
     try {
         const { days = 7 } = req.body;
@@ -72,5 +66,19 @@ exports.getUpcomingBirthdays = async (req, res) => {
         res.status(200).json({ success: true, ...result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.createManyEmployees = async (req, res) => {
+    try {
+        const result = await employeeService.createManyEmployeesService(req.body);
+
+        return res.status(201).json({
+            message: "Employees uploaded successfully",
+            data: result
+        });
+
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
     }
 };

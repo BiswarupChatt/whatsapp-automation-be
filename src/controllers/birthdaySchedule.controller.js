@@ -1,4 +1,5 @@
 const birthdayScheduleService = require("../services/birthdaySchedule.services");
+const messageEmitter = require("../events/messageEmitter")
 
 exports.createBirthdaySchedule = async (req, res) => {
     try {
@@ -78,16 +79,24 @@ exports.deleteSchedule = async (req, res) => {
 
 exports.sendMessagesToday = async (req, res) => {
     try {
-        const result = await birthdayScheduleService.sendMessagesToday();
+        const today = new Date();
+        const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-        res.status(200).json({
+        // 🔥 Emit event → background processing starts
+        messageEmitter.emit("sendTodayBirthdays", {
+            startOfDay,
+            endOfDay,
+        });
+
+        return res.status(200).json({
             success: true,
-            message: result.message,
+            message: "Birthday messages are being processed in background.",
         });
     } catch (error) {
         console.error("Error in sendMessagesToday Controller:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: error.message || "Failed to send scheduled messages",
         });

@@ -1,6 +1,7 @@
 const EmployeeList = require("../models/employee.model");
 const BirthdaySchedule = require("../models/birthdaySchedule.model");
 const { sendMessage } = require("../services/whatsapp.service")
+const messageEmitter = require("../events/messageEmitter")
 
 function getNextBirthday(dob) {
     const now = new Date();
@@ -164,47 +165,95 @@ exports.deleteSchedule = async (id) => {
 };
 
 
-exports.sendMessagesToday = async () => {
-    const today = new Date();
+// exports.sendMessagesToday = async () => {
+//     const today = new Date();
 
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+//     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+//     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-    const schedules = await BirthdaySchedule.find({
-        status: "pending",
-        scheduledDate: { $gte: startOfDay, $lte: endOfDay }
-    }).populate(
-        "employeeId",
-        "firstName lastName empId phoneNumber designation"
-    );
+//     const schedules = await BirthdaySchedule.find({
+//         status: "pending",
+//         scheduledDate: { $gte: startOfDay, $lte: endOfDay }
+//     }).populate(
+//         "employeeId",
+//         "firstName lastName empId phoneNumber designation"
+//     );
 
-    if (schedules.length === 0) {
-        return { message: "No pending birthday messages for today." };
-    }
+//     if (schedules.length === 0) {
+//         return { message: "No pending birthday messages for today." };
+//     }
 
-    const groupName = "Test Group";
+//     const groupName = "Test Group";
 
-    for (const sch of schedules) {
-        try {
-            await sendMessage({
-                groupName,
-                message: sch.message,
-                imageUrl: sch.imageUrl || null
-            });
+//     for (const sch of schedules) {
+//         try {
+//             await sendMessage({
+//                 groupName,
+//                 message: sch.message,
+//                 imageUrl: sch.imageUrl || null
+//             });
 
-            await BirthdaySchedule.findByIdAndUpdate(sch._id, {
-                status: "sent",
-                sentAt: new Date(),
-            });
+//             await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+//                 status: "sent",
+//                 sentAt: new Date(),
+//             });
 
-        } catch (err) {
-            console.error("Message sending failed for schedule:", sch._id, err);
+//         } catch (err) {
+//             console.error("Message sending failed for schedule:", sch._id, err);
 
-            await BirthdaySchedule.findByIdAndUpdate(sch._id, {
-                status: "failed",
-            });
+//             await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+//                 status: "failed",
+//             });
+//         }
+//     }
+
+//     return { message: "Birthday messages processed successfully." };
+// };
+
+messageEmitter.on("sendTodayBirthdays", async ({ startOfDay, endOfDay }) => {
+    console.log("🎉 Background job started...");
+
+    try {
+        const schedules = await BirthdaySchedule.find({
+            status: "pending",
+            scheduledDate: { $gte: startOfDay, $lte: endOfDay }
+        }).populate(
+            "employeeId",
+            "firstName lastName empId phoneNumber designation"
+        );
+
+        if (schedules.length === 0) {
+            console.log("No pending birthday messages.");
+            return;
         }
-    }
 
-    return { message: "Birthday messages processed successfully." };
-};
+        const groupName = "Test Group";
+
+        for (const sch of schedules) {
+            try {
+                await sendMessage({
+                    groupName,
+                    message: sch.message,
+                    imageUrl: sch.imageUrl || null
+                });
+
+                await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+                    status: "sent",
+                    sentAt: new Date(),
+                });
+
+                console.log("✔ Sent:", sch.employeeId.firstName);
+            } catch (err) {
+                console.error("❌ Failed for:", sch._id);
+
+                await BirthdaySchedule.findByIdAndUpdate(sch._id, {
+                    status: "failed",
+                });
+            }
+        }
+
+        console.log("🎉 Background job completed.");
+    } catch (err) {
+        console.error("🔥 Error in listener:", err);
+    }
+});

@@ -13,6 +13,8 @@ const { connectToWhatsApp, getSocketState } = require("./src/services/whatsapp.s
 const { authMiddleware } = require("./src/middleware/auth.middleware");
 const morgan = require("morgan");
 
+require("./src/services/birthdaySchedule.services")
+
 // =================== INITIAL SETUP ===================
 const app = express();
 app.use(cors());

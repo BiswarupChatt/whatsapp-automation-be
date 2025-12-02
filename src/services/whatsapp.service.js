@@ -4,47 +4,56 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
 } = require("@whiskeysockets/baileys");
+const axios = require("axios");
+const mime = require("mime-types");
 const { broadcast } = require("../utils/broadcast.utils");
 const { clearAuthFolder } = require("../utils/file.utils");
 const { MAX_RETRIES, QR_EXPIRY_MS } = require("../utils/constants");
-const axios = require("axios");
-const mime = require("mime-types");
 
-let sock;
+let sock = null;
 let isReady = false;
 let isConnecting = false;
 let lastQr = null;
 let reconnectAttempts = 0;
 let qrTimeout = null;
-
+let manualDisconnect = false; // to avoid auto-reconnect when user calls disconnect
 let fileTypeFromBuffer = null;
+
+// =================== OPTIONAL file-type loader ===================
 (async () => {
     try {
-        // Lazy-require to keep it optional if not installed
-        fileTypeFromBuffer = (await import("file-type")).fileTypeFromBuffer;
-    } catch (_) { }
+        const mod = await import("file-type");
+        fileTypeFromBuffer = mod.fileTypeFromBuffer;
+    } catch (_) {
+        console.log("file-type not installed, falling back to mime-types only.");
+    }
 })();
 
+// =================== PUBLIC: SEND MESSAGE ===================
 async function sendMessage({ groupName, message, imageUrl }) {
     const { sock, isReady } = getSocketState();
-    if (!isReady) throw new Error("WhatsApp not connected yet.");
+    if (!isReady || !sock || !sock.user) {
+        throw new Error("WhatsApp not connected yet.");
+    }
 
     try {
         console.log(`🔍 Looking for group: "${groupName}"`);
         const groups = await sock.groupFetchAllParticipating();
         const group = Object.values(groups).find(
-            g => (g.subject || "").trim().toLowerCase() === (groupName || "").trim().toLowerCase()
+            (g) => (g.subject || "").trim().toLowerCase() === (groupName || "").trim().toLowerCase()
         );
 
         if (!group) {
-            const availableGroups = Object.values(groups).map(g => g.subject).join(", ");
+            const availableGroups = Object.values(groups)
+                .map((g) => g.subject)
+                .join(", ");
             console.log(`📋 Available groups: ${availableGroups}`);
             throw new Error(`Group "${groupName}" not found.`);
         }
 
         console.log(`✅ Found group: ${group.id}`);
 
-        // No image? Send plain text and return
+        // No image? Send plain text
         if (!imageUrl) {
             console.log(`🚀 Sending text message...`);
             await sock.sendMessage(group.id, { text: message || "" });
@@ -64,8 +73,8 @@ async function sendMessage({ groupName, message, imageUrl }) {
             timeout: 30000,
             headers: {
                 "User-Agent": "Mozilla/5.0",
-                "Accept": "image/*"
-            }
+                Accept: "image/*",
+            },
         });
 
         const fileBuffer = Buffer.from(response.data);
@@ -76,11 +85,11 @@ async function sendMessage({ groupName, message, imageUrl }) {
             throw new Error(`Image too large: ${sizeMB.toFixed(2)}MB (max 16MB)`);
         }
 
-        // Determine mime from magic bytes (best) → header → filename
+        // Try to detect mime
         let detectedMime = null;
         if (fileTypeFromBuffer) {
             try {
-                const detected = await fileTypeFromBuffer(fileBuffer); // { mime, ext } | undefined
+                const detected = await fileTypeFromBuffer(fileBuffer);
                 detectedMime = detected?.mime || null;
             } catch (_) { }
         }
@@ -93,11 +102,11 @@ async function sendMessage({ groupName, message, imageUrl }) {
             throw new Error(`Invalid content type: ${mimetype}`);
         }
 
-        console.log(`🚀 Sending image to WhatsApp (buffer, no temp file)...`);
+        console.log(`🚀 Sending image to WhatsApp (buffer)...`);
         await sock.sendMessage(group.id, {
             image: fileBuffer,
             mimetype,
-            caption: message || ""
+            caption: message || "",
         });
 
         console.log(`✅ Image + caption sent to group: ${groupName}`);
@@ -108,24 +117,36 @@ async function sendMessage({ groupName, message, imageUrl }) {
     }
 }
 
+// =================== CORE: CONNECT LOGIC ===================
+async function connectToWhatsApp(forceNewSession = false) {
+    if (isConnecting) {
+        console.log("⚠️ Already connecting — skipping new connection.");
+        return;
+    }
 
-async function connectToWhatsApp(isFresh = false) {
-    if (isConnecting || isReady) {
-        console.log("⚠️ Already connected or connecting — skipping new connection.");
+    if (isReady && sock && sock.user) {
+        console.log("⚠️ Already connected — skipping new connection.");
         return;
     }
 
     try {
-        isConnecting = true; // set lock
-        if (isFresh) clearAuthFolder();
+        isConnecting = true;
+        manualDisconnect = false;
+
+        if (forceNewSession) {
+            console.log("🧹 Clearing old auth session (forceNewSession = true)...");
+            clearAuthFolder();
+        }
 
         const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
-        // Close any existing socket gracefully
-        if (sock) {
+        // Prefer using sock?.end() instead of direct ws.close()
+        if (sock?.end) {
             try {
-                await sock.ws.close();
-            } catch (_) { }
+                await sock.end();
+            } catch (e) {
+                console.log("⚠️ Error ending previous socket:", e.message);
+            }
         }
 
         sock = makeWASocket({
@@ -133,14 +154,18 @@ async function connectToWhatsApp(isFresh = false) {
             auth: state,
             syncFullHistory: false,
             markOnlineOnConnect: false,
+            // You can tweak browser info if needed
+            browser: ["Chrome", "Desktop", "1.0.0"],
         });
 
+        // Save creds when updated
         sock.ev.on("creds.update", saveCreds);
 
+        // Connection updates
         sock.ev.on("connection.update", async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            // 🔹 QR Code handling
+            // QR handling
             if (qr) {
                 lastQr = qr;
                 broadcast("qr", { qr });
@@ -148,12 +173,13 @@ async function connectToWhatsApp(isFresh = false) {
                 startQrExpiryTimer();
             }
 
-            // 🔹 Connected successfully
             if (connection === "open") {
                 reconnectAttempts = 0;
                 isReady = true;
-                isConnecting = false; // unlock
+                isConnecting = false;
                 lastQr = null;
+
+                clearTimeout(qrTimeout);
 
                 const user = sock.user || {};
                 const userInfo = {
@@ -161,52 +187,115 @@ async function connectToWhatsApp(isFresh = false) {
                     number: user.id ? user.id.split(":")[0] : "Unknown",
                 };
 
-                clearTimeout(qrTimeout);
                 broadcast("connected", { connected: true, user: userInfo });
-                console.log(`✅ Connected as ${userInfo.name} (${userInfo.number})`);
+                console.log(`✅ WhatsApp connected as ${userInfo.name} (${userInfo.number})`);
             }
 
-            // 🔹 Disconnected
             if (connection === "close") {
-                const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
-                console.log("❌ Disconnected. Reason:", statusCode);
-
                 isReady = false;
-                isConnecting = false; // unlock so reconnection can happen later
-                broadcast("disconnected", { connected: false, reason: statusCode });
+                isConnecting = false;
+                clearTimeout(qrTimeout);
+
+                const boom = new Boom(lastDisconnect?.error);
+                const statusCode = boom.output?.statusCode;
+                const reason = boom.message || "Unknown";
+
+                console.log("❌ WhatsApp connection closed:", { statusCode, reason });
+
+                broadcast("disconnected", {
+                    connected: false,
+                    reason: statusCode,
+                });
+
+                if (manualDisconnect) {
+                    console.log("🛑 Manual disconnect — skipping auto-reconnect.");
+                    manualDisconnect = false;
+                    return;
+                }
 
                 handleReconnection(statusCode);
             }
         });
 
+        // Minimal message handler (ignore when not ready)
         sock.ev.on("messages.upsert", (m) => {
-            console.log("📩 Message:", JSON.stringify(m, null, 2));
+            if (!isReady || !sock?.user) {
+                console.log("📩 Incoming message ignored (session not ready).");
+                return;
+            }
+            console.log("📩 Message upsert:", JSON.stringify(m, null, 2));
+            // You can add your own business logic here later
         });
     } catch (err) {
         console.error("❌ WhatsApp connection failed:", err.message);
         broadcast("error", { error: err.message });
-        isConnecting = false; // ensure unlock on error
+        isConnecting = false;
     }
 }
 
-async function disconnectFromWhatsApp() {
-    try {
-        console.log("🔌 Disconnecting from WhatsApp...");
+// =================== RECONNECT HANDLER ===================
+function handleReconnection(statusCode) {
+    const { loggedOut } = DisconnectReason;
 
-        if (sock) {
+    // True logout -> clear auth and force new session
+    if (statusCode === loggedOut || statusCode === 401) {
+        console.log("⚠️ Session logged out / invalid. Clearing auth and starting fresh...");
+        reconnectAttempts = 0;
+        clearAuthFolder();
+        setTimeout(() => connectToWhatsApp(true), 2000);
+        return;
+    }
+
+    // Other transient errors -> retry with backoff WITHOUT clearing auth
+    if (reconnectAttempts < MAX_RETRIES) {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        console.log(`🔁 Reconnecting in ${delay / 1000}s (Attempt ${reconnectAttempts})...`);
+        setTimeout(() => connectToWhatsApp(false), delay);
+    } else {
+        console.log("🚫 Max retries reached — clearing session and starting new.");
+        reconnectAttempts = 0;
+        clearAuthFolder();
+        setTimeout(() => connectToWhatsApp(true), 5000);
+    }
+}
+
+// =================== QR EXPIRY HANDLING ===================
+function startQrExpiryTimer() {
+    if (qrTimeout) clearTimeout(qrTimeout);
+
+    qrTimeout = setTimeout(() => {
+        if (!isReady && lastQr) {
+            console.log("⏰ QR expired — requesting new QR (same session)...");
+            // We DO NOT clear auth here. Just re-init connection so Baileys gives a new QR.
+            connectToWhatsApp(false);
+        }
+    }, QR_EXPIRY_MS);
+}
+
+// =================== PUBLIC: DISCONNECT LOGIC ===================
+async function disconnectFromWhatsApp() {
+    console.log("🔌 Manual disconnect from WhatsApp requested...");
+
+    try {
+        manualDisconnect = true;
+
+        if (sock?.end) {
             try {
-                await sock.ws.close();
-                sock.ev.removeAllListeners();
-                console.log("🧹 Socket closed and listeners removed.");
+                await sock.end();
+                console.log("🧹 Socket ended gracefully.");
             } catch (err) {
-                console.warn("⚠️ Error closing socket:", err.message);
+                console.warn("⚠️ Error ending socket:", err.message);
             }
         }
 
-        clearAuthFolder();
-        console.log("🧹 Old WhatsApp session cleared.");
+        clearTimeout(qrTimeout);
 
-        // Ensure ALL flags are properly reset
+        // If you want manual disconnect to also wipe session (so next time QR is required),
+        // you can leave this as true. If you want to keep session, comment this out.
+        clearAuthFolder();
+        console.log("🧹 Old WhatsApp auth session cleared (manual disconnect).");
+
         isReady = false;
         isConnecting = false;
         lastQr = null;
@@ -215,47 +304,21 @@ async function disconnectFromWhatsApp() {
 
         broadcast("disconnected", { connected: false, user: null });
     } catch (err) {
-        console.error("❌ Error during disconnect:", err.message);
+        console.error("❌ Error during manual disconnect:", err.message);
         throw err;
+    } finally {
+        manualDisconnect = false;
     }
 }
 
-
-
-function startQrExpiryTimer() {
-    if (qrTimeout) clearTimeout(qrTimeout);
-    qrTimeout = setTimeout(() => {
-        if (!isReady && lastQr) {
-            console.log("⏰ QR expired — reconnecting for new QR...");
-            connectToWhatsApp(true);
-        }
-    }, QR_EXPIRY_MS);
-}
-
-function handleReconnection(statusCode) {
-    const { loggedOut } = DisconnectReason;
-
-    if (statusCode === loggedOut || statusCode === 401) {
-        reconnectAttempts = 0;
-        console.log("⚠️ Session expired, reconnecting fresh...");
-        return connectToWhatsApp(true);
-    }
-
-    if (reconnectAttempts < MAX_RETRIES) {
-        reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-        console.log(`🔁 Reconnecting in ${delay / 1000}s (Attempt ${reconnectAttempts})`);
-        setTimeout(() => connectToWhatsApp(false), delay);
-    } else {
-        console.log("🚫 Max retries reached — resetting session...");
-        reconnectAttempts = 0;
-        connectToWhatsApp(true);
-    }
-}
-
+// =================== PUBLIC: SOCKET STATE ===================
 function getSocketState() {
     return { isReady, isConnecting, lastQr, sock };
 }
 
-
-module.exports = { connectToWhatsApp, getSocketState, sendMessage, disconnectFromWhatsApp };
+module.exports = {
+    connectToWhatsApp,
+    getSocketState,
+    sendMessage,
+    disconnectFromWhatsApp,
+};
